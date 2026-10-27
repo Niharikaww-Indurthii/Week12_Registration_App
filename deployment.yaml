@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: registration-app
-          image: YOUR_DOCKERHUB_USERNAME/selenium-registration-app:latest
+          image: nihaaaa34/selenium-registration-app:latest
           ports:
             - containerPort: 5000
           readinessProbe:

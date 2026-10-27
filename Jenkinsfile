@@ -1,71 +1,173 @@
+```groovy
 pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = 'YOUR_DOCKERHUB_USERNAME/selenium-registration-app'
+        DOCKER_IMAGE = 'nihaaaa34/selenium-registration-app'
+
         KUBECONFIG = 'C:\\Users\\harik\\.kube\\config'
+
+        PYTHON = 'C:\\Users\\harik\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe'
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
+        stage('Check Environment') {
+            steps {
+                bat '''
+                    "%PYTHON%" --version
+                    if errorlevel 1 exit /b 1
+
+                    docker --version
+                    if errorlevel 1 exit /b 1
+
+                    kubectl version --client
+                    if errorlevel 1 exit /b 1
+                '''
+            }
+        }
+
         stage('Install Dependencies') {
             steps {
-                bat 'py -m pip install -r requirements.txt'
+                bat '''
+                    "%PYTHON%" -m pip install --upgrade pip
+                    if errorlevel 1 exit /b 1
+
+                    "%PYTHON%" -m pip install -r requirements.txt
+                    if errorlevel 1 exit /b 1
+                '''
             }
         }
 
         stage('Run Selenium Tests') {
             steps {
-                bat 'py -m pytest -v tests/test_registrationapp.py'
+                bat '''
+                    "%PYTHON%" -m pytest -v tests/test_registrationapp.py
+                    if errorlevel 1 exit /b 1
+                '''
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                bat 'docker build -t %DOCKER_IMAGE%:%BUILD_NUMBER% .'
-                bat 'docker tag %DOCKER_IMAGE%:%BUILD_NUMBER% %DOCKER_IMAGE%:latest'
+                bat '''
+                    docker info
+                    if errorlevel 1 exit /b 1
+
+                    docker build -t %DOCKER_IMAGE%:%BUILD_NUMBER% .
+                    if errorlevel 1 exit /b 1
+
+                    docker tag %DOCKER_IMAGE%:%BUILD_NUMBER% %DOCKER_IMAGE%:latest
+                    if errorlevel 1 exit /b 1
+                '''
             }
         }
 
         stage('Push Image to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    powershell '$env:DOCKER_PASS | docker login -u $env:DOCKER_USER --password-stdin'
-                    bat 'docker push %DOCKER_IMAGE%:%BUILD_NUMBER%'
-                    bat 'docker push %DOCKER_IMAGE%:latest'
-                    bat 'docker logout'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    powershell '''
+                        $ErrorActionPreference = 'Stop'
+
+                        $env:DOCKER_PASS |
+                            docker login -u $env:DOCKER_USER --password-stdin
+
+                        if ($LASTEXITCODE -ne 0) {
+                            exit $LASTEXITCODE
+                        }
+
+                        docker push "$env:DOCKER_IMAGE`:$env:BUILD_NUMBER"
+
+                        if ($LASTEXITCODE -ne 0) {
+                            exit $LASTEXITCODE
+                        }
+
+                        docker push "$env:DOCKER_IMAGE`:latest"
+
+                        if ($LASTEXITCODE -ne 0) {
+                            exit $LASTEXITCODE
+                        }
+
+                        docker logout
+                    '''
                 }
+            }
+        }
+
+        stage('Check Kubernetes Access') {
+            steps {
+                bat '''
+                    kubectl config current-context
+                    if errorlevel 1 exit /b 1
+
+                    kubectl get nodes
+                    if errorlevel 1 exit /b 1
+                '''
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                bat 'kubectl config current-context'
-                bat 'kubectl get nodes'
-                bat 'kubectl apply -f deployment.yaml'
-                bat 'kubectl apply -f service.yaml'
-                bat 'kubectl set image deployment/selenium-registration-deployment registration-app=%DOCKER_IMAGE%:%BUILD_NUMBER%'
-                bat 'kubectl rollout status deployment/selenium-registration-deployment --timeout=180s'
+                bat '''
+                    kubectl apply -f deployment.yaml
+                    if errorlevel 1 exit /b 1
+
+                    kubectl set image deployment/selenium-registration-deployment registration-app=%DOCKER_IMAGE%:%BUILD_NUMBER%
+                    if errorlevel 1 exit /b 1
+
+                    kubectl apply -f service.yaml
+                    if errorlevel 1 exit /b 1
+
+                    kubectl rollout status deployment/selenium-registration-deployment --timeout=180s
+                    if errorlevel 1 exit /b 1
+                '''
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                bat 'kubectl get deployments'
-                bat 'kubectl get pods'
-                bat 'kubectl get services'
+                bat '''
+                    kubectl get deployments
+                    if errorlevel 1 exit /b 1
+
+                    kubectl get pods
+                    if errorlevel 1 exit /b 1
+
+                    kubectl get services
+                    if errorlevel 1 exit /b 1
+
+                    kubectl get deployment selenium-registration-deployment -o wide
+                    if errorlevel 1 exit /b 1
+                '''
             }
         }
     }
 
     post {
-        success { echo 'Week 12 Registration Selenium pipeline completed successfully.' }
-        failure { echo 'Pipeline failed. Check the first failed stage in Console Output.' }
-        always { echo 'Week 12 pipeline execution finished.' }
+        success {
+            echo 'Week 12 Registration Selenium pipeline completed successfully.'
+            echo 'Application URL: http://localhost:30188'
+        }
+
+        failure {
+            echo 'Week 12 pipeline failed. Review the first failed stage and its error.'
+        }
+
+        always {
+            echo 'Week 12 pipeline execution finished.'
+        }
     }
 }
+```
