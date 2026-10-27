@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Form</title>
+    <script>
+        function validateForm() {
+            var username = document.forms['registrationForm']['username'].value.trim();
+            var password = document.forms['registrationForm']['pwd'].value;
+
+            if (username === '') {
+                alert('Username cannot be empty.');
+                return false;
+            }
+            if (password === '') {
+                alert('Password cannot be empty.');
+                return false;
+            }
+            if (password.length < 6 || !/[0-9]/.test(password) || !/[A-Za-z]/.test(password)) {
+                alert('Password must be at least 6 characters long, with at least one number and one letter.');
+                return false;
+            }
+            return true;
+        }
+    </script>
+</head>
+<body>
+    <main style="max-width: 480px; margin: 60px auto; font-family: Arial, sans-serif;">
+        <h2>Application Form</h2>
+        {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+        <form name="registrationForm" action="/submit" method="POST" onsubmit="return validateForm();">
+            <label for="username">Enter Your Name:</label>
+            <input type="text" id="username" name="username" autocomplete="username">
+            <br><br>
+            <label for="pwd">Enter Your Password:</label>
+            <input type="password" id="pwd" name="pwd" autocomplete="new-password">
+            <br><br>
+            <input type="submit" id="sb" name="sb" value="Submit">
+        </form>
+    </main>
+</body>
+</html>

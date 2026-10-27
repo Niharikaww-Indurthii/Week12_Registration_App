@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: selenium-registration-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: selenium-registration
+  template:
+    metadata:
+      labels:
+        app: selenium-registration
+    spec:
+      containers:
+        - name: registration-app
+          image: YOUR_DOCKERHUB_USERNAME/selenium-registration-app:latest
+          ports:
+            - containerPort: 5000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
