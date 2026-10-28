@@ -69,7 +69,6 @@ pipeline {
             }
         }
 
-        ```groovy
 stage('Push Image to Docker Hub') {
     steps {
         withCredentials([
