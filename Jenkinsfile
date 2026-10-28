@@ -67,59 +67,37 @@ pipeline {
             }
         }
 
-        stage('Push Image to Docker Hub') {
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub-creds',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )
-                ]) {
-                    powershell '''
-                        $ErrorActionPreference = 'Stop'
+        
+stage('Test Docker Hub Authentication') {
+    steps {
+        withCredentials([
+            usernamePassword(
+                credentialsId: 'dockerhub-creds',
+                usernameVariable: 'DOCKER_USER',
+                passwordVariable: 'DOCKER_PASS'
+            )
+        ]) {
+            powershell '''
+                $ErrorActionPreference = 'Stop'
 
-                        Write-Host "Checking Docker Hub credentials..."
-                        Write-Host "Docker Hub username: $env:DOCKER_USER"
+                Write-Host "Username: $env:DOCKER_USER"
+                Write-Host "Token length: $($env:DOCKER_PASS.Length)"
+                Write-Host "Testing Docker Hub authentication..."
 
-                        if ([string]::IsNullOrWhiteSpace($env:DOCKER_USER)) {
-                            throw "Docker Hub username is empty."
-                        }
+                $env:DOCKER_PASS |
+                    docker login --username $env:DOCKER_USER --password-stdin
 
-                        if ([string]::IsNullOrWhiteSpace($env:DOCKER_PASS)) {
-                            throw "Docker Hub token is empty."
-                        }
-
-                        Write-Host "Attempting Docker Hub login..."
-
-                        $env:DOCKER_PASS |
-                            docker login --username $env:DOCKER_USER --password-stdin
-
-                        if ($LASTEXITCODE -ne 0) {
-                            throw "Docker Hub login failed. Check the Jenkins credential."
-                        }
-
-                        Write-Host "Docker Hub login successful!"
-
-                        docker push "$env:DOCKER_IMAGE`:$env:BUILD_NUMBER"
-
-                        if ($LASTEXITCODE -ne 0) {
-                            throw "Failed to push the build-number image."
-                        }
-
-                        docker push "$env:DOCKER_IMAGE`:latest"
-
-                        if ($LASTEXITCODE -ne 0) {
-                            throw "Failed to push the latest image."
-                        }
-
-                        Write-Host "Both Docker images pushed successfully."
-
-                        docker logout
-                    '''
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Docker Hub authentication failed."
                 }
-            }
+
+                Write-Host "Authentication successful!"
+                docker logout
+            '''
         }
+    }
+}
+
 
         stage('Check Kubernetes Access') {
             steps {
