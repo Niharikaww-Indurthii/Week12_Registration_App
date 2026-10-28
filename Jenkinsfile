@@ -1,12 +1,10 @@
-
+```groovy
 pipeline {
     agent any
 
     environment {
         DOCKER_IMAGE = 'nihaaaa34/selenium-registration-app'
-
         KUBECONFIG = 'C:\\Users\\harik\\.kube\\config'
-
         PYTHON = 'C:\\Users\\harik\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe'
     }
 
@@ -69,57 +67,59 @@ pipeline {
             }
         }
 
-stage('Push Image to Docker Hub') {
-    steps {
-        withCredentials([
-            usernamePassword(
-                credentialsId: 'dockerhub-creds',
-                usernameVariable: 'DOCKER_USER',
-                passwordVariable: 'DOCKER_PASS'
-            )
-        ]) {
-            powershell '''
-                $ErrorActionPreference = 'Stop'
+        stage('Push Image to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    powershell '''
+                        $ErrorActionPreference = 'Stop'
 
-                Write-Host "Docker Hub username: $env:DOCKER_USER"
+                        Write-Host "Checking Docker Hub credentials..."
+                        Write-Host "Docker Hub username: $env:DOCKER_USER"
 
-                if ([string]::IsNullOrWhiteSpace($env:DOCKER_USER)) {
-                    throw "Docker Hub username is empty."
+                        if ([string]::IsNullOrWhiteSpace($env:DOCKER_USER)) {
+                            throw "Docker Hub username is empty."
+                        }
+
+                        if ([string]::IsNullOrWhiteSpace($env:DOCKER_PASS)) {
+                            throw "Docker Hub token is empty."
+                        }
+
+                        Write-Host "Attempting Docker Hub login..."
+
+                        $env:DOCKER_PASS |
+                            docker login --username $env:DOCKER_USER --password-stdin
+
+                        if ($LASTEXITCODE -ne 0) {
+                            throw "Docker Hub login failed. Check the Jenkins credential."
+                        }
+
+                        Write-Host "Docker Hub login successful!"
+
+                        docker push "$env:DOCKER_IMAGE`:$env:BUILD_NUMBER"
+
+                        if ($LASTEXITCODE -ne 0) {
+                            throw "Failed to push the build-number image."
+                        }
+
+                        docker push "$env:DOCKER_IMAGE`:latest"
+
+                        if ($LASTEXITCODE -ne 0) {
+                            throw "Failed to push the latest image."
+                        }
+
+                        Write-Host "Both Docker images pushed successfully."
+
+                        docker logout
+                    '''
                 }
-
-                if ([string]::IsNullOrWhiteSpace($env:DOCKER_PASS)) {
-                    throw "Docker Hub token is empty."
-                }
-
-                Write-Host "Attempting Docker Hub login..."
-
-                $env:DOCKER_PASS |
-                    docker login --username $env:DOCKER_USER --password-stdin
-
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Docker Hub login failed."
-                }
-
-                Write-Host "Docker Hub login successful!"
-
-                docker push "$env:DOCKER_IMAGE`:$env:BUILD_NUMBER"
-
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Build image push failed."
-                }
-
-                docker push "$env:DOCKER_IMAGE`:latest"
-
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Latest image push failed."
-                }
-
-                docker logout
-            '''
+            }
         }
-    }
-}
-```
 
         stage('Check Kubernetes Access') {
             steps {
@@ -185,3 +185,4 @@ stage('Push Image to Docker Hub') {
         }
     }
 }
+```
