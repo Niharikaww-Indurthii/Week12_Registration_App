@@ -67,37 +67,35 @@ pipeline {
             }
         }
 
-        
-stage('Test Docker Hub Authentication') {
-    steps {
-        withCredentials([
-            usernamePassword(
-                credentialsId: 'dockerhub-creds',
-                usernameVariable: 'DOCKER_USER',
-                passwordVariable: 'DOCKER_PASS'
-            )
-        ]) {
-            powershell '''
-                $ErrorActionPreference = 'Stop'
+        stage('Push Image to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    bat '''
+                        @echo off
+                        echo Attempting Docker Hub login for %DOCKER_USER%...
+                        echo %DOCKER_PASS%| docker login --username %DOCKER_USER% --password-stdin
+                        if errorlevel 1 exit /b 1
 
-                Write-Host "Username: $env:DOCKER_USER"
-                Write-Host "Token length: $($env:DOCKER_PASS.Length)"
-                Write-Host "Testing Docker Hub authentication..."
+                        echo Pushing %DOCKER_IMAGE%:%BUILD_NUMBER%...
+                        docker push %DOCKER_IMAGE%:%BUILD_NUMBER%
+                        if errorlevel 1 exit /b 1
 
-                $env:DOCKER_PASS |
-                    docker login --username $env:DOCKER_USER --password-stdin
+                        echo Pushing %DOCKER_IMAGE%:latest...
+                        docker push %DOCKER_IMAGE%:latest
+                        if errorlevel 1 exit /b 1
 
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Docker Hub authentication failed."
+                        echo Docker push complete. Logging out...
+                        docker logout
+                    '''
                 }
-
-                Write-Host "Authentication successful!"
-                docker logout
-            '''
+            }
         }
-    }
-}
-
 
         stage('Check Kubernetes Access') {
             steps {
